@@ -36,7 +36,7 @@ let ChatroomService = class ChatroomService {
                 chatroomId: id,
             },
         });
-        return '创建成功';
+        return { code: 200, ok: '创建成功' };
     }
     async createGroupChatroom(name, userId) {
         const { id } = await this.prismaService.chatroom.create({
@@ -51,7 +51,10 @@ let ChatroomService = class ChatroomService {
                 chatroomId: id,
             },
         });
-        return '创建成功';
+        return {
+            code: 200,
+            ok: '群聊创建成功',
+        };
     }
     async list(userId, name) {
         const chatroomIds = await this.prismaService.userChatroom.findMany({
@@ -120,7 +123,11 @@ let ChatroomService = class ChatroomService {
                 email: true,
             },
         });
-        return users;
+        return {
+            code: 200,
+            ok: '查询成功',
+            users,
+        };
     }
     async info(id) {
         const chatroom = await this.prismaService.chatroom.findUnique({

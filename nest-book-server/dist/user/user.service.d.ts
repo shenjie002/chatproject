@@ -18,4 +18,14 @@ export declare class UserService {
         createTime: Date;
         updateTime: Date;
     }>;
+    findUserDetailById(id: number): Promise<{
+        name: string;
+        nick_name: string;
+        email: string;
+        password: string;
+        id: number;
+        headPic: string;
+        createTime: Date;
+        updateTime: Date;
+    }>;
 }

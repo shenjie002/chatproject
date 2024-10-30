@@ -32,7 +32,7 @@ const ChatroomLayout = ({
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex justify-between p-[40px] pt-6">
+      <div className="flex justify-between p-[40px]  h-[20%]">
         <div className="text-5xl">聊天室</div>
         <div className="flex items-center">
           <Image
@@ -45,7 +45,7 @@ const ChatroomLayout = ({
           {info && info.name}
         </div>
       </div>
-      <div className="flex flex-1 w-full h-full">
+      <div className="flex flex-1 ">
         <div className="w-[20%] flex flex-col justify-around items-center text-2xl border  border-solid border-gray-10">
           <Link
             href="/chatroom/FriendsAddressBook"

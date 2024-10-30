@@ -99,6 +99,7 @@ export default function NotificationPage() {
   };
 
   const ActionButtons = ({ id, status }) => {
+    console.log("status", status);
     if (status == 1) {
       return "已通过";
     }

@@ -22,8 +22,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useForm } from "react-hook-form";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
 const token = localStorage.getItem("token");
+
 async function getPeopleList(params: any) {
   // 将查询参数转换为 URL 编码的字符串
   console.log("进来了么", params);
@@ -39,9 +41,27 @@ async function getPeopleList(params: any) {
       "Content-Type": "application/json", // 设置请求头，告诉服务器发送的是JSON格式的数据
       Authorization: ("bearer " + token) as string,
     },
+  });
+  const result = await data.json();
+  console.log("服务端返回数据");
+  return result;
+}
+//创建一对一聊天窗口
+async function createOneToOneChatroom(params: any) {
+  // 将查询参数转换为 URL 编码的字符串
+  console.log("进来了么", params);
+  const queryString = new URLSearchParams(params).toString();
+  const url = "http://localhost:4000/chatroom/create-one-to-one";
+  // 将查询字符串附加到 URL
+  const fullUrl = `${url}?${queryString}`;
+  console.log("fullUrl", fullUrl);
 
-    // 请求体中包含要传递给服务器的数据
-    // body: JSON.stringify(data), // 将JavaScript对象转换为JSON字符串
+  const data = await fetch(fullUrl, {
+    method: "Get", // 指定请求方法为Get
+    headers: {
+      "Content-Type": "application/json", // 设置请求头，告诉服务器发送的是JSON格式的数据
+      Authorization: ("bearer " + token) as string,
+    },
   });
   const result = await data.json();
   console.log("服务端返回数据");
@@ -87,8 +107,12 @@ export default function FriendsAddressBookPage({ props }) {
       reason: "",
     },
   });
-  const onSearch = async (e) => {
-    e.preventDefault();
+
+  useEffect(() => {
+    onSearch();
+  }, []);
+  const onSearch = async () => {
+    // e.preventDefault();
     console.log("搜索");
     const list = await getPeopleList({ name: form.watch("name") });
     console.log("返回", list);
@@ -96,14 +120,22 @@ export default function FriendsAddressBookPage({ props }) {
   };
 
   //聊天
-  const GoSendMes = (id) => {
+  const GoSendMes = async (id: number) => {
     console.log("编辑", id);
     // 编辑操作的逻辑
+    const data = await createOneToOneChatroom({ friendId: id });
+    console.log("创建一对一聊天窗口", data);
+    if (data.code == 200) {
+      alert(data.ok);
+    }
   };
 
-  const ActionButtons = ({ GoSendMes }) => (
+  const ActionButtons = ({ id }) => (
     <div className="flex items-center justify-items-end">
-      <button onClick={GoSendMes} className="btn btn-blue w-16">
+      <button
+        onClick={() => GoSendMes(id)}
+        className="btn btn-blue w-16 text-blue-500"
+      >
         聊天
       </button>
       {/* <button onClick={onDelete} className=" btn btn-red  w-16">
@@ -182,7 +214,7 @@ export default function FriendsAddressBookPage({ props }) {
                 <TableCell>{item.email}</TableCell>
                 <TableCell className="text-center w-60">
                   {/* 传递编辑和删除的事件处理函数 */}
-                  <ActionButtons GoSendMes={() => GoSendMes(item.id)} />
+                  <ActionButtons id={item.id} />
                 </TableCell>
               </TableRow>
             ))}

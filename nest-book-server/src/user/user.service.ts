@@ -76,4 +76,13 @@ export class UserService {
     }
     return hasUser;
   }
+  //个人详细信息
+  async findUserDetailById(id: number) {
+    const data = await this.prisma.user.findUnique({
+      where: {
+        id: id,
+      },
+    });
+    return data;
+  }
 }

@@ -20,6 +20,7 @@ exports.UserModule = UserModule = __decorate([
         imports: [redis_module_1.RedisModule],
         controllers: [user_controller_1.UserController],
         providers: [user_service_1.UserService, prisma_service_1.PrismaService],
+        exports: [user_service_1.UserService],
     })
 ], UserModule);
 //# sourceMappingURL=user.module.js.map

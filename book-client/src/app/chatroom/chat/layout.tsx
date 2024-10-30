@@ -5,7 +5,7 @@ export default function ChatLayout({
 }>) {
   return (
     <div className="w-full h-full">
-      <div>聊天</div>
+      <div className="h-[30px]">聊天</div>
       {children}
     </div>
   );

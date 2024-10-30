@@ -14,6 +14,7 @@ interface SendMessagePayload {
 }
 export declare class ChatGateway {
     private readonly chatService;
+    private userService;
     private chatHistoryService;
     constructor(chatService: ChatService);
     server: Server;

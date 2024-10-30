@@ -18,6 +18,7 @@ const chat_service_1 = require("./chat.service");
 const socket_io_1 = require("socket.io");
 const chat_history_service_1 = require("../chat-history/chat-history.service");
 const common_1 = require("@nestjs/common");
+const user_service_1 = require("../user/user.service");
 let ChatGateway = class ChatGateway {
     constructor(chatService) {
         this.chatService = chatService;
@@ -32,20 +33,26 @@ let ChatGateway = class ChatGateway {
     }
     async sendMessage(payload) {
         const roomName = payload.chatroomId.toString();
-        await this.chatHistoryService.add(payload.chatroomId, {
+        const history = await this.chatHistoryService.add(payload.chatroomId, {
             content: payload.message.content,
             type: payload.message.type === 'image' ? 1 : 0,
             chatroomId: payload.chatroomId,
             senderId: payload.sendUserId,
         });
+        const sender = await this.userService.findUserDetailById(history.senderId);
+        console.log('详细个人信息', sender);
         this.server.to(roomName).emit('message', {
             type: 'sendMessage',
             userId: payload.sendUserId,
-            message: payload.message,
+            message: { ...history, sender },
         });
     }
 };
 exports.ChatGateway = ChatGateway;
+__decorate([
+    (0, common_1.Inject)(user_service_1.UserService),
+    __metadata("design:type", user_service_1.UserService)
+], ChatGateway.prototype, "userService", void 0);
 __decorate([
     (0, common_1.Inject)(chat_history_service_1.ChatHistoryService),
     __metadata("design:type", chat_history_service_1.ChatHistoryService)

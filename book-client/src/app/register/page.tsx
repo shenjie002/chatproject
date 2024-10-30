@@ -1,7 +1,7 @@
 // import Image from "next/image";
 "use client";
 import { Button } from "@/components/ui/button";
-import { getEmailCode, register } from "../actions";
+import { getEmailCode } from "../actions";
 import { Input } from "@/components/ui/input";
 import {
   Form,
@@ -15,10 +15,33 @@ import {
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+//注册
+export async function register(data: any) {
+  const response = await fetch("http://localhost:4000/user/register", {
+    method: "POST", // 指定请求方法为POST
+    headers: {
+      "Content-Type": "application/json", // 设置请求头，告诉服务器发送的是JSON格式的数据
+    },
+    // 请求体中包含要传递给服务器的数据
+    body: JSON.stringify(data), // 将JavaScript对象转换为JSON字符串
+  });
+  console.log("服务响应", response);
+  //   // 检查响应状态
+  //   if (!response.ok) {
+  //     throw new Error(`HTTP error! status: ${response.status}`);
+  //   }
+
+  // 解析JSON响应体
+  const json = await response.json();
+  console.log("返回的json", json);
+  return json; // 返回解析后的数据
+}
+
 export default function RegisterPage() {
   const form = useForm({
     defaultValues: {
       name: "",
+      nick_name: "",
       email: "",
       password: "",
       confirmPassword: "", //再次确认密码
@@ -30,7 +53,9 @@ export default function RegisterPage() {
     // 处理服务端错误
     const response = await register({
       name: data.name,
+      nick_name: data.nick_name,
       email: data.email,
+
       emailCode: data.emailCode,
       password: data.password,
     });
@@ -46,7 +71,7 @@ export default function RegisterPage() {
       });
       return;
     }
-
+    alert(response?.ok);
     form.reset();
     router.push(`/login`); // 跳转
   };
@@ -77,10 +102,10 @@ export default function RegisterPage() {
   };
   return (
     <div className="w-full h-full flex-col flex justify-center items-center ">
-      <div className="text-4xl">用户注册中心</div>
+      <div className="text-4xl mb-3">用户注册中心</div>
       <div
         className="flex-col flex justify-center items-center rounded border 
-border-solid border-gray-500 w-[600px] h-[600px]"
+border-solid border-gray-500 w-[600px] h-[700px]"
       >
         <Form {...form}>
           <form
@@ -95,6 +120,19 @@ border-solid border-gray-500 w-[600px] h-[600px]"
                   <FormLabel>输入您的用户名：</FormLabel>
                   <FormControl>
                     <Input placeholder="用户名" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="nick_name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>输入您的昵称：</FormLabel>
+                  <FormControl>
+                    <Input placeholder="昵称" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

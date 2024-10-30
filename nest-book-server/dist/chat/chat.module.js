@@ -11,12 +11,13 @@ const common_1 = require("@nestjs/common");
 const chat_service_1 = require("./chat.service");
 const chat_gateway_1 = require("./chat.gateway");
 const chat_history_module_1 = require("../chat-history/chat-history.module");
+const user_module_1 = require("../user/user.module");
 let ChatModule = class ChatModule {
 };
 exports.ChatModule = ChatModule;
 exports.ChatModule = ChatModule = __decorate([
     (0, common_1.Module)({
-        imports: [chat_history_module_1.ChatHistoryModule],
+        imports: [chat_history_module_1.ChatHistoryModule, user_module_1.UserModule],
         providers: [chat_gateway_1.ChatGateway, chat_service_1.ChatService],
     })
 ], ChatModule);
