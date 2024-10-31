@@ -9,21 +9,21 @@ export declare class UserService {
         ok: string;
     }>;
     login(data: LoginUserDto): Promise<{
+        id: number;
         name: string;
+        password: string;
         nick_name: string;
         email: string;
-        password: string;
-        id: number;
         headPic: string;
         createTime: Date;
         updateTime: Date;
     }>;
     findUserDetailById(id: number): Promise<{
+        id: number;
         name: string;
+        password: string;
         nick_name: string;
         email: string;
-        password: string;
-        id: number;
         headPic: string;
         createTime: Date;
         updateTime: Date;

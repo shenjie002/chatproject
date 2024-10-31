@@ -61,16 +61,25 @@ let ChatroomController = class ChatroomController {
         }
         return this.chatroomService.info(id);
     }
-    async join(id_, joinUserId_) {
+    async join(id_, joinUsername) {
         const id = parseInt(id_);
-        const joinUserId = parseInt(joinUserId_);
         if (!id) {
-            throw new common_1.BadRequestException('id 不能为空');
+            throw new common_1.HttpException({
+                status: 402,
+                message: {
+                    id: 'id 不能为空',
+                },
+            }, common_1.HttpStatus.BAD_REQUEST);
         }
-        if (!joinUserId) {
-            throw new common_1.BadRequestException('joinUserId 不能为空');
+        if (!joinUsername) {
+            throw new common_1.HttpException({
+                status: 402,
+                message: {
+                    joinUsername: 'joinUsername 不能为空',
+                },
+            }, common_1.HttpStatus.BAD_REQUEST);
         }
-        return this.chatroomService.join(id, joinUserId);
+        return this.chatroomService.join(id, joinUsername);
     }
     async quit(id_, quitUserId_) {
         const id = parseInt(id_);
@@ -126,7 +135,7 @@ __decorate([
 __decorate([
     (0, common_1.Get)('join/:id'),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Query)('joinUserId')),
+    __param(1, (0, common_1.Query)('joinUsername')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)

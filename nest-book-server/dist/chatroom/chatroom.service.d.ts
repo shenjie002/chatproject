@@ -40,6 +40,10 @@ export declare class ChatroomService {
         updateTime: Date;
         type: boolean;
     }>;
-    join(id: number, userId: number): Promise<string>;
+    join(id: number, joinUsername: string): Promise<{
+        code: number;
+        ok: string;
+        chatroomId: number;
+    }>;
     quit(id: number, userId: number): Promise<string>;
 }

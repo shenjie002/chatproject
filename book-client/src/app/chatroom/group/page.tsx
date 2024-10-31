@@ -1,5 +1,6 @@
 // import Image from "next/image";
 "use client";
+
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
@@ -31,12 +32,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { toast } from "react-hot-toast";
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import useStore from "../../../store";
+import JoinChatroomPage from "@/components/chatroomJoinModel";
 
 // import { getPeopleList } from "@/app/actions";
-async function getPeopleList(params: any) {
+export async function getPeopleList(params: any) {
   // 将查询参数转换为 URL 编码的字符串
   console.log("进来了么", params);
   const queryString = new URLSearchParams(params).toString();
@@ -59,7 +62,7 @@ async function getPeopleList(params: any) {
   console.log("服务端返回数据");
   return result;
 }
-//查询聊天室的所有用户
+//查询聊天室的所有用户-详情
 async function getchatroomAllPeople(params: any) {
   // 将查询参数转换为 URL 编码的字符串
   console.log("进来了么", params);
@@ -107,6 +110,30 @@ async function createGroup(params: any) {
   console.log("服务端返回数据");
   return result;
 }
+//添加成员
+export async function JoinChatroom(id: number, joinUsername: any) {
+  // 将查询参数转换为 URL 编码的字符串
+  console.log("进来了么", joinUsername);
+  const queryString = new URLSearchParams(joinUsername).toString();
+  const url = "http://localhost:4000/chatroom/join";
+  // 将查询字符串附加到 URL
+  const fullUrl = `${url}/${id}?${queryString}`;
+  console.log("fullUrl", fullUrl);
+  const token = localStorage.getItem("token");
+  const data = await fetch(fullUrl, {
+    method: "Get", // 指定请求方法为Get
+    headers: {
+      "Content-Type": "application/json", // 设置请求头，告诉服务器发送的是JSON格式的数据
+      Authorization: ("bearer " + token) as string,
+    },
+
+    // 请求体中包含要传递给服务器的数据
+    // body: JSON.stringify(data), // 将JavaScript对象转换为JSON字符串
+  });
+  const result = await data.json();
+  console.log("服务端返回数据");
+  return result;
+}
 interface GroupSearchResult {
   id: number;
   name: string;
@@ -122,6 +149,7 @@ export default function GroupPage({ props }) {
   const [chatroomPeopel, setChatroomPeopel] = useState([]);
   const { changeChatroomId } = useStore();
   const [isOpen, setIsOpen] = useState(false);
+
   const [groupName, setGroupName] = useState("");
 
   const form = useForm({
@@ -129,6 +157,11 @@ export default function GroupPage({ props }) {
       name: "",
       password: "",
       confirmPassword: "",
+    },
+  });
+  const Addform = useForm({
+    defaultValues: {
+      joinUsername: "",
     },
   });
   useEffect(() => {
@@ -170,68 +203,72 @@ export default function GroupPage({ props }) {
     }
     console.log("xiangqing", data);
   };
+  //添加成员
+  const AddUsers = () => {
+    Addform.clearErrors("joinUsername");
+    // setIsOpenAdd(true);
+  };
   const ActionButtons = ({ id }) => (
     <div className="flex items-center justify-items-end">
-      <button
-        onClick={() => GoSendMes(id)}
-        className="btn btn-blue w-16 text-sky-400"
-      >
+      <button onClick={() => GoSendMes(id)} className=" w-16 text-sky-400">
         聊天
       </button>
-
-      <Dialog open={isOpen}>
-        <DialogTrigger asChild>
-          <button
-            onClick={() => goDetail(id)}
-            className=" btn btn-red  w-16 text-sky-400"
-          >
-            详情
-          </button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>群聊成员</DialogTitle>
-            <DialogDescription></DialogDescription>
-          </DialogHeader>
-          <Table>
-            {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-[100px]">ID</TableHead>
-                <TableHead>用户名</TableHead>
-                <TableHead>昵称</TableHead>
-                <TableHead className="text-center">邮箱</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {chatroomPeopel.map((item: any) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.id}</TableCell>
-
-                  <TableCell>{item.name}</TableCell>
-                  <TableCell>{item.nick_name}</TableCell>
-                  <TableCell>{item.email}</TableCell>
-                  <TableCell className="text-center w-60">
-                    {/* 传递编辑和删除的事件处理函数 */}
-                    {/* <ActionButtons id={item.id} /> */}
-                  </TableCell>
+      <>
+        <Dialog open={isOpen}>
+          <DialogTrigger asChild>
+            <button
+              onClick={() => goDetail(id)}
+              className=" btn btn-red  w-16 text-sky-400"
+            >
+              详情
+            </button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>群聊成员</DialogTitle>
+              <DialogDescription></DialogDescription>
+            </DialogHeader>
+            <Table>
+              {/* <TableCaption>A list of your recent invoices.</TableCaption> */}
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[100px]">ID</TableHead>
+                  <TableHead>用户名</TableHead>
+                  <TableHead>昵称</TableHead>
+                  <TableHead className="text-center">邮箱</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <DialogFooter className="sm:justify-start">
-            <DialogClose asChild>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsOpen(false)}
-              >
-                Close
-              </Button>
-            </DialogClose>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              </TableHeader>
+              <TableBody>
+                {chatroomPeopel.map((item: any) => (
+                  <TableRow key={item.id}>
+                    <TableCell className="font-medium">{item.id}</TableCell>
+
+                    <TableCell>{item.name}</TableCell>
+                    <TableCell>{item.nick_name}</TableCell>
+                    <TableCell>{item.email}</TableCell>
+                    <TableCell className="text-center w-60">
+                      {/* 传递编辑和删除的事件处理函数 */}
+                      {/* <ActionButtons id={item.id} /> */}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <DialogFooter className="sm:justify-start">
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Close
+                </Button>
+              </DialogClose>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+      <JoinChatroomPage AddUsers={AddUsers} id={id} onSearch={onSearch} />
     </div>
   );
   return (

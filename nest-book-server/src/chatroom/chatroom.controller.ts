@@ -75,19 +75,35 @@ export class ChatroomController {
   @Get('join/:id')
   async join(
     @Param('id') id_: string,
-    @Query('joinUserId') joinUserId_: string,
+    @Query('joinUsername') joinUsername: string,
   ) {
     const id = parseInt(id_);
-    const joinUserId = parseInt(joinUserId_);
+
     if (!id) {
-      throw new BadRequestException('id 不能为空');
+      throw new HttpException(
+        {
+          status: 402,
+          message: {
+            id: 'id 不能为空',
+          },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    if (!joinUserId) {
-      throw new BadRequestException('joinUserId 不能为空');
+    if (!joinUsername) {
+      throw new HttpException(
+        {
+          status: 402,
+          message: {
+            joinUsername: 'joinUsername 不能为空',
+          },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
     }
-    return this.chatroomService.join(id, joinUserId);
+    return this.chatroomService.join(id, joinUsername);
   }
-  //推出群聊
+  //退出出群聊
   @Get('quit/:id')
   async quit(
     @Param('id') id_: string,

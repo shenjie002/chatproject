@@ -6,7 +6,13 @@ import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import Image from "next/image";
 import useStore from "../../../store";
-
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import EmojiPicker from "@emoji-mart/react";
+import data from "@emoji-mart/data";
 interface JoinRoomPayload {
   chatroomId: number;
   userId: number;
@@ -98,7 +104,7 @@ async function chatHistoryList(params?: any) {
     // body: JSON.stringify(data), // 将JavaScript对象转换为JSON字符串
   });
   const result = await data.json();
-  console.log("服务端返回数据");
+  console.log("历史记录服务端返回数据");
   return result;
 }
 export default function ChatPage({ props }) {
@@ -129,6 +135,7 @@ export default function ChatPage({ props }) {
     }
   }
   async function queryChatHistoryList(chatroomId: number) {
+    console.log("历史记录");
     try {
       const res = await chatHistoryList({ chatroomId: chatroomId });
       console.log("聊天历史", res);
@@ -147,8 +154,10 @@ export default function ChatPage({ props }) {
     }
   }
   useEffect(() => {
+    if (chatroomId) {
+      queryChatHistoryList(chatroomId);
+    }
     queryChatroomList();
-    chatHistoryList({ chatroomId: chatroomId });
   }, []);
   //websocket长连接
   useEffect(() => {
@@ -214,6 +223,7 @@ export default function ChatPage({ props }) {
 
     socketRef.current?.emit("sendMessage", payload);
   }
+  console.log("历史机率chatHistory", chatHistory);
   return (
     <>
       <div className="flex h-[calc(100%_-_30px)]">
@@ -281,8 +291,23 @@ export default function ChatPage({ props }) {
           </div>
           <div className="flex flex-col flex-1">
             <div className="flex">
-              <span>表情</span>
-              <span>文件</span>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline">
+                    <span>表情</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80">
+                  <EmojiPicker
+                    data={data}
+                    onEmojiSelect={(emoji: any) => {
+                      setInputText((inputText) => inputText + emoji.native);
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <span className="mx-4">文件</span>
               <span>图片</span>
             </div>
             <div className="flex">

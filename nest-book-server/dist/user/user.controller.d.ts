@@ -17,11 +17,11 @@ export declare class UserController {
         ok: string;
         token: string;
         user: {
+            id: number;
             name: string;
+            password: string;
             nick_name: string;
             email: string;
-            password: string;
-            id: number;
             headPic: string;
             createTime: Date;
             updateTime: Date;

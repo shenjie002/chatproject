@@ -8,10 +8,10 @@ export declare class ChatHistoryService {
         res: any[];
     }>;
     add(chatroomId: number, history: HistoryDto): Promise<{
-        type: number;
         id: number;
         createTime: Date;
         updateTime: Date;
+        type: number;
         chatroomId: number;
         content: string;
         senderId: number;

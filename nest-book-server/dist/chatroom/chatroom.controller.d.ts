@@ -46,6 +46,10 @@ export declare class ChatroomController {
         updateTime: Date;
         type: boolean;
     }>;
-    join(id_: string, joinUserId_: string): Promise<string>;
+    join(id_: string, joinUsername: string): Promise<{
+        code: number;
+        ok: string;
+        chatroomId: number;
+    }>;
     quit(id_: string, quitUserId_: string): Promise<string>;
 }

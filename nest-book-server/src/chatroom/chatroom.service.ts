@@ -1,4 +1,10 @@
-import { BadRequestException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Inject,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma.service';
 
 @Injectable()
@@ -134,7 +140,7 @@ export class ChatroomService {
     });
     return { ...chatroom, users: await this.members(id) };
   }
-  async join(id: number, userId: number) {
+  async join(id: number, joinUsername: string) {
     const chatroom = await this.prismaService.chatroom.findUnique({
       where: {
         id,
@@ -143,16 +149,33 @@ export class ChatroomService {
     if (chatroom.type === false) {
       throw new BadRequestException('一对一聊天室不能加人');
     }
+    const user = await this.prismaService.user.findUnique({
+      where: {
+        name: joinUsername,
+      },
+    });
 
+    if (!user) {
+      throw new HttpException(
+        {
+          status: 402,
+          message: {
+            joinUsername: '用户不存在',
+          },
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
     await this.prismaService.userChatroom.create({
       data: {
-        userId,
+        userId: user.id,
         chatroomId: id,
       },
     });
 
-    return '加入成功';
+    return { code: 200, ok: '加入成功', chatroomId: chatroom.id };
   }
+  //退出
   async quit(id: number, userId: number) {
     const chatroom = await this.prismaService.chatroom.findUnique({
       where: {
