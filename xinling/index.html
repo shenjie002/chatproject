@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Example</title>
+</head>
+<body>
+    <h1>WebRTC Example</h1>
+    <div class="user-list">
+        <h3>用户列表</h3>
+        <ul id="userList"></ul>
+      </div> <input type="text" id="messageInput" placeholder="发送消息"> <button onclick="sendMessage()">发送</button>
+      <p>远端消息: <span id="messageResponse"></span></p>
+      <div style="display: flex; justify-content: space-between;">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    <script src="app.js"></script>
+</body>
+</html>
