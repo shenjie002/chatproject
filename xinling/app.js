@@ -32,7 +32,7 @@ let roomName = 'default-room'; // 默认房间名称
 console.log("我是",clientId)
 // 存储所有 RTCPeerConnection 实例
 let localPc;
-let jieshoulocalPc
+
 let dataChannel
 //存储通道
 const dataChannelMap = new Map();
@@ -166,16 +166,19 @@ function createPeerConnection(peerId,isOfferer = false) {
             setupChannelEvents(localChannel, peerId);
             dataChannelMap.set(peerId,localChannel) // 存储到对应 peerId 的通道
 
-    }
+    }else{
 
      // ✅ 接收方通过事件获取对方创建的通道
      localPc.ondatachannel = (event) => {
-    const receiveChannel = event.channel;
-   
-   setupChannelEvents(receiveChannel, peerId);
-   dataChannelMap.set(peerId,receiveChannel) // 存储到对应 peerId 的通道
+        const receiveChannel = event.channel;
+       
+       setupChannelEvents(receiveChannel, peerId);
+       dataChannelMap.set(peerId,receiveChannel) // 存储到对应 peerId 的通道
+    
+                } ;
 
-            } ;
+    }
+
 
 
     localStream.getTracks().forEach(track => {
