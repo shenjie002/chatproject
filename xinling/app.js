@@ -4,26 +4,27 @@ const remoteVideos = {}; // 用于存储远程视频流
 // ICE 服务器配置
 const iceServers = [
     { urls: 'stun:stun.l.google.com:19302' },
-    {
-        urls: 'turn:127.0.0.1:3478?transport=udp',
-        username: 'musen',
-        credential: '123456',
-        realm: '127.0.0.1'
-    },
-    {
-        urls: 'turn:127.0.0.1:3478?transport=tcp',
-        username: 'musen',
-        credential: '123456',
-        realm: '127.0.0.1'
-    },
-    {
-        urls: 'stun:127.0.0.1:3478',
-        username: 'musen',
-        credential: '123456',
-        realm: '127.0.0.1'
-    }
+    // {
+    //     urls: 'turn:127.0.0.1:3478?transport=udp',
+    //     username: 'musen',
+    //     credential: '123456',
+    //     realm: '127.0.0.1'
+    // },
+    // {
+    //     urls: 'turn:127.0.0.1:3478?transport=tcp',
+    //     username: 'musen',
+    //     credential: '123456',
+    //     realm: '127.0.0.1'
+    // },
+    // {
+    //     urls: 'stun:127.0.0.1:3478',
+    //     username: 'musen',
+    //     credential: '123456',
+    //     realm: '127.0.0.1'
+    // }
 ];
 let localStream;//本地流
+let usersList
 // WebSocket 信令通信
 const socket = new WebSocket('ws://localhost:8080');
 let clientId = Date.now().toString(); // 生成一个唯一的 ID
@@ -31,6 +32,8 @@ let roomName = 'default-room'; // 默认房间名称
 console.log("我是",clientId)
 // 存储所有 RTCPeerConnection 实例
 let localPc;
+let jieshoulocalPc
+let dataChannel
 //存储通道
 const dataChannelMap = new Map();
 socket.onopen = () => {
@@ -52,6 +55,7 @@ socket.onmessage = event => {
 
         const userList = document.getElementById('userList');
         userList.innerHTML = '';
+        usersList=data.peers
         data.peers.forEach((user) => {
           const li = document.createElement('li');
           li.textContent = user;
@@ -77,6 +81,7 @@ socket.onmessage = event => {
 
 
     } else if (data.type === 'offer') {
+
         if (!localPc) {
             createPeerConnection(data.fromId,false)
           }
@@ -85,7 +90,18 @@ socket.onmessage = event => {
     const offer = data.offer;
         console.log("接收的offer",data)
         console.log(`来自 offer from ${data.fromId}`);
-
+        usersList=data.peers
+        data.peers.forEach((user) => {
+            const li = document.createElement('li');
+            li.textContent = user;
+            if (user !== clientId) {
+              const callBtn = document.createElement('button');
+              callBtn.textContent = '通话';
+              callBtn.onclick = () => createPeerConnection(user,true);
+              li.appendChild(callBtn);
+            }
+            userList.appendChild(li);
+          });
         try {
            
             
@@ -101,12 +117,12 @@ socket.onmessage = event => {
 
         console.log(`来自 answer from ${data.fromId}`,data.answer);
         const conn = localPc
+       
         if (conn) {
 
             conn.setRemoteDescription(data.answer);
         }
-
-
+       
 
     } else if (data.type === 'candidate') {
 
@@ -122,7 +138,7 @@ socket.onmessage = event => {
             );
         }
 
-
+       
 
     } else if (data.type === 'peer-disconnected') {
         // 成员离开，关闭连接
@@ -132,19 +148,35 @@ socket.onmessage = event => {
 };
 //创建 RTCPeerConnection
 function createPeerConnection(peerId,isOfferer = false) {
-   
+   console.log("createPeerConnection:",isOfferer,)
 
     if (!localStream) {
         addLocalStream(peerId,) // 添加本地媒体流
     }
-
-    const conn = new RTCPeerConnection();
+    const conn  = new RTCPeerConnection({iceServers});
     localPc=conn
-    const dataChannel = conn.createDataChannel('chat');
-    dataChannel.onopen = () => console.log('Data channel open');
-    dataChannel.onmessage = (e) => document.getElementById('messageResponse').textContent = e.data;
-    dataChannel.onclose = () => console.log('Data channel close');
-    dataChannelMap.set(peerId, dataChannel);
+//发起方创建通过
+    if (isOfferer) {
+        
+               // 发起方创建数据通道并存储
+   const localChannel= conn.createDataChannel('faqiChannel', {
+                ordered: true,
+                protocol: "json",
+            });
+            setupChannelEvents(localChannel, peerId);
+            dataChannelMap.set(peerId,localChannel) // 存储到对应 peerId 的通道
+
+    }
+
+     // ✅ 接收方通过事件获取对方创建的通道
+     localPc.ondatachannel = (event) => {
+    const receiveChannel = event.channel;
+   
+   setupChannelEvents(receiveChannel, peerId);
+   dataChannelMap.set(peerId,receiveChannel) // 存储到对应 peerId 的通道
+
+            } ;
+
 
     localStream.getTracks().forEach(track => {
         console.log("track", track);
@@ -209,15 +241,20 @@ conn.ontrack = (event) => {
             delete remoteVideos[peerId];
         };
     }
+
+console.log("isOfferer",isOfferer)
+    
+
 };
 
-    if (isOfferer) {
-        try {
-            createAndSendOffer(conn,peerId)
-        } catch (e) {
-          console.error('创建 offer 失败', e);
-        }
-      }
+if (isOfferer) {
+    try {
+        createAndSendOffer(conn,peerId)
+        console.log("发offer")
+    } catch (e) {
+      console.error('创建 offer 失败', e);
+    }
+  }
 
 }
 //获取本地媒体流并添加到连接
@@ -234,6 +271,7 @@ console.log("peerId",peerId)
 }
 //创建 Offer 并发送
 function createAndSendOffer(conn,peerId) {
+    console.log("dataChannelMap",dataChannelMap)
     let offer_
     conn.createOffer()
         .then(offer => { 
@@ -251,11 +289,30 @@ function createAndSendOffer(conn,peerId) {
         })
         .catch(error => console.error('Error creating offer:', error));
 }
+
+    // ✅ 通道事件绑定函数（消息接收等）
+function setupChannelEvents(channel, peerId) {
+    console.log("setupChannelEvents",peerId)
+        channel.onmessage = (e) => {
+            const content = JSON.parse(e.data)
+            console.log(`来自 ${peerId}: ${e.data}`);
+            
+            displayMessage(peerId, content.content, false); // 显示接收的消息
+        }
+        channel.onopen = () => {
+            console.log(`与 ${peerId} 的通道已打开`);
+        };
+    
+
+}
+
 //处理远端 Offer
 function handleRemoteOffer(peerId, offer) {
     console.log("处理远端 Offer",peerId,offer)
     
     const conn = localPc
+
+
     console.log("conn",conn)
     conn.setRemoteDescription(offer)
         .then(() => {
@@ -270,7 +327,7 @@ return answer
         .then((answer) => {
 
             socket.send(JSON.stringify({
-                type: 'answer',
+                type: 'answer',//给发起方
                 answer: answer,
                 toId: peerId,
                 roomName: roomName
@@ -279,16 +336,38 @@ return answer
         })
         .catch(error => console.error('Error handling remote offer:', error));
 }
+//发送消息
 function sendMessage() {
+    const targetPeerId = usersList[0]
     const message = document.getElementById('messageInput').value;
-    const dataChannel = dataChannelMap.get(clientId);
+    const dataChannel =  dataChannelMap.get(targetPeerId);
+    console.log("dataChannel",usersList,dataChannel,dataChannelMap)
     if (dataChannel && dataChannel.readyState === 'open') {
-      dataChannel.send(message);
+        console.log("发送的message",message)
+      dataChannel.send(JSON.stringify({  // 修改为发送JSON格式
+                   type: 'message',
+                   content: message,
+                   sender: clientId
+            }));
+            displayMessage(targetPeerId, message, true); // 显示发送的消息
       document.getElementById('messageInput').value = '';
     } else {
       alert('数据通道未建立或已关闭！');
     }
   }
+  
+  // ✅ 显示消息到页面
+function displayMessage(peerId, content, isSentByMe) {
+    const messagesDiv = document.getElementById('messageResponse');
+    messagesDiv.innerHTML += `
+        <div class="${isSentByMe ? 'sent' : 'received'}">
+            ${isSentByMe ? '我' : peerId} 说：${content}
+        </div>
+    `;
+}
+  
+  
+  
 // 错误和关闭处理
 socket.onerror = error => {
     console.error('WebSocket error:', error);

@@ -63,13 +63,15 @@ wss.on('connection', ws => {
 
                 console.log(`Client ${peerId} joined room ${roomName}`);
             } else if (data.type === 'offer') {
-                
-                console.log("转发Offer")
+
+                 console.log("转发Offer")
                 console.log("当前currentId",currentId)
                console.log(data.offer)
                 // 转发 Offer
                 const toId = data.toId;
                 const room = rooms.get(currentRoom);
+                const peers = Array.from(room.keys()).filter(key => key !== toId);
+               
                 console.log("来自toId",toId)
                 if (room) {
                     const toWs = room.get(toId);
@@ -78,7 +80,8 @@ wss.on('connection', ws => {
                             type: 'offer',
                             offer: data.offer,
                             fromId: currentId,
-                            roomName: currentRoom
+                            roomName: currentRoom,
+                            peers:peers
                         }));
                     } else {
                         console.error(`Remote peer ${toId} not found in room ${currentRoom}`);
