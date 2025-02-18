@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生</title>
+    <style>
+.sent{
+  color:aqua
+}
+.received{
+  color:blueviolet
+}
+
+    </style>
+</head>
+<body>
+    <h1>学生</h1>
+    <div class="user-list">
+        <h3>用户列表</h3>
+        <ul id="userList"></ul>
+      </div> <input type="text" id="messageInput" placeholder="发送消息"> <button id="myButton">发送</button>
+      <p>远端消息: <span id="messageResponse"></span></p>
+      <div style=" width:100%; display: flex; justify-content: space-between;">
+       <div> <p style="width:100px" >我的视频</p>
+        <video id="localVideo" autoplay muted playsinline></video></div>
+       <div></div>
+        <!-- <video id="remoteVideo" autoplay playsinline></video> -->
+      </div>
+    <script src="xuesheng.js"></script>
+    <p>老师的视频</p>
+    <div id="publisherVideoParent"  style= "width:100%; height: 400px;"></div>
+</body>
+</html>

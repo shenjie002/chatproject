@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Post, Query } from '@nestjs/common';
 import { EmailService } from './email.service';
 import { RedisService } from 'src/redis/redis.service';
 
@@ -9,10 +9,11 @@ export class EmailController {
     private redisServide: RedisService,
   ) {}
 
-  @Get('code')
+  @Post('code')
   async sendEmailCode(@Query('address') address) {
     console.log('前端传来的address', address);
     const code = Math.random().toString().slice(2, 8);
+    console.log(code)
     await this.redisServide.set(`emailCode_${address}`, code, 10 * 60);
     await this.emailService.sendMail({
       to: address,

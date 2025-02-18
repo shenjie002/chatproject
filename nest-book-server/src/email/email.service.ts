@@ -7,6 +7,9 @@ export class EmailService {
   transporter: Transporter;
 
   constructor(private configService: ConfigService) {
+
+
+
     this.transporter = createTransport({
       host: 'smtp.qq.com',
       port: 587,
@@ -19,6 +22,7 @@ export class EmailService {
   }
 
   async sendMail({ to, subject, html }) {
+    console.log(this.configService.get('email_user'))
     await this.transporter.sendMail({
       from: {
         name: '系统邮件',

@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>老师</title>
+    <style>
+.sent{
+  color:aqua
+}
+.received{
+  color:blueviolet
+}
+
+    </style>
+</head>
+<body>
+    <h1>老师</h1>
+    <div class="user-list">
+        <h3>用户列表</h3>
+        <ul id="userList"></ul>
+      </div> <input type="text" id="messageInput" placeholder="发送消息"> <button id="myButton" >发送</button>   <button id="huanliu" >背景1</button>
+      <button id="huanliu2" >背景2</button>  <button id="huanliu3" >背景3</button> <button id="huanliu4" >背景4</button>
+      <p>远端消息: <span id="messageResponse"></span></p>
+      <div style="display: flex; justify-content: space-between;" >
+        <div id="localdiv" style= "width:100%; height: 400px;">
+        <video id="localVideo" autoplay muted playsinline></video>
+       </div>
+        <canvas id="output_canvas">
+      </div>
+      
+    <script  src="laoshi.js"></script>
+</body>
+</html>

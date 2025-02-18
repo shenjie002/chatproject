@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebRTC 视频通话</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: Arial, sans-serif;
+    }
+    #localVideo {
+      width: 300px;
+      height: 200px;
+      border: 1px solid #ccc;
+    }
+    #remoteVideo {
+      width: 300px;
+      height: 200px;
+      border: 1px solid #ccc;
+      margin-left: 20px;
+    }
+    .user-list {
+      width: 300px;
+      height: 800px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      overflow-y: auto;
+    }
+    .message-box {
+      width: 800px;
+      margin: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div>
+    <div class="user-list">
+      <h3>用户列表</h3>
+      <ul id="userList"></ul>
+    </div>
+    <div>
+      <div class="message-box">
+        <input type="text" id="messageInput" placeholder="发送消息">
+        <p>远端消息: <span id="messageResponse"></span></p>
+        <button onclick="sendMessage()">发送</button>
+        <button onclick="toggleVideo()">切换摄像头</button>
+        <button onclick="increaseBitrate()">增加比特率</button>
+      </div>
+      <div style="display: flex; justify-content: space-between;">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+    </div>
+  </div>
+  <script src="app1.js"></script>
+  
+</body>
+</html>

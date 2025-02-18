@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-    provider = "mysql"
+    provider = "postgresql"
     url      = env("DATABASE_URL")
 }
 
@@ -15,7 +15,7 @@ model book {
     userId      Int
     user        user   @relation(fields: [userId], references: [id], map: "Book_userId_fkey")
 
-    @@index([userId], map: "Book_userId_fkey")
+    @@index([userId], map: "Book_userId_index")
 }
 
 model user {
