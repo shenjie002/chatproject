@@ -11,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-const token = localStorage.getItem("token");
+const token = sessionStorage.getItem("token");
 async function getNotificationList() {
   // 将查询参数转换为 URL 编码的字符串
 

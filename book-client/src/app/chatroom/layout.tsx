@@ -22,7 +22,7 @@ const ChatroomLayout = ({
 }>) => {
   const [info, useInfo] = useState<userInfo>();
   useEffect(() => {
-    const userInfo = localStorage.getItem("userInfo");
+    const userInfo = sessionStorage.getItem("userInfo");
     if (userInfo) {
       const info = JSON.parse(userInfo);
       // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -33,7 +33,7 @@ const ChatroomLayout = ({
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex justify-between p-[40px]  h-[20%]">
-        <div className="text-5xl">聊天室</div>
+        {/* <div className="text-5xl">聊天室</div> */}
         <div className="flex items-center">
           <Image
             src="/124599.jfif"
@@ -63,7 +63,7 @@ const ChatroomLayout = ({
             href="/chatroom/chat"
             className="w-full hover:bg-blue-300 text-center"
           >
-            聊天
+            1v1聊天
           </Link>
           <Link
             href="/chatroom/collection"

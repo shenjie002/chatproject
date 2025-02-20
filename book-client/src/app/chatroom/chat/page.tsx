@@ -13,6 +13,14 @@ import {
 } from "@/components/ui/popover";
 import EmojiPicker from "@emoji-mart/react";
 import data from "@emoji-mart/data";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+
 interface JoinRoomPayload {
   chatroomId: number;
   userId: number;
@@ -44,6 +52,9 @@ type Reply =
   | {
       type: "joinRoom";
       userId: number;
+    }
+  | {
+      type: "videoCall";
     };
 
 interface ChatHistory {
@@ -55,9 +66,32 @@ interface ChatHistory {
   createTime: Date;
   sender: User;
 }
-const token = localStorage.getItem("token");
+// ICE 服务器配置
+const iceServers = [
+  { urls: "stun:stun.l.google.com:19302" },
+  {
+    urls: "turn:127.0.0.1:3478?transport=udp",
+    username: "musen",
+    credential: "123456",
+    realm: "127.0.0.1",
+  },
+  {
+    urls: "turn:127.0.0.1:3478?transport=tcp",
+    username: "musen",
+    credential: "123456",
+    realm: "127.0.0.1",
+  },
+  {
+    urls: "stun:127.0.0.1:3478",
+    username: "musen",
+    credential: "123456",
+    realm: "127.0.0.1",
+  },
+];
+
+const token = sessionStorage.getItem("token");
 export function getUserInfo(): User {
-  return JSON.parse(localStorage.getItem("userInfo")!);
+  return JSON.parse(sessionStorage.getItem("userInfo")!);
 }
 //聊天室列表
 async function chatroomList(params?: any) {
@@ -116,7 +150,18 @@ export default function ChatPage({ props }) {
   const [roomId, setChatroomId] = useState<number>();
   const [inputText, setInputText] = useState<string>("");
   const { chatroomId } = useStore();
-  async function queryChatroomList() {
+  const [userIdslist, setUserIdslist] = useState<any>();
+  const [userIds, setUserIds] = useState<any>();
+  const [isVideoCallOpen, setIsVideoCallOpen] = useState(false);
+  const [isCallRequesting, setIsCallRequesting] = useState(false);
+  const [isInCall, setIsInCall] = useState(false);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const localPc = useRef<any>();
+  const localStream = useRef<any>();
+  const remoteVideos = useRef<any>({});
+
+  const queryChatroomList = async () => {
     try {
       const res = await chatroomList();
       console.log("聊天室列表:", res);
@@ -129,12 +174,13 @@ export default function ChatPage({ props }) {
             };
           })
         );
+        setUserIdslist(res.list.map((item: any) => item.userIds));
       }
     } catch (e: any) {
       //   message.error(e.response?.data?.message || "系统繁忙，请稍后再试");
     }
-  }
-  async function queryChatHistoryList(chatroomId: number) {
+  };
+  const queryChatHistoryList = async (chatroomId: number) => {
     console.log("历史记录");
     try {
       const res = await chatHistoryList({ chatroomId: chatroomId });
@@ -152,7 +198,7 @@ export default function ChatPage({ props }) {
     } catch (e: any) {
       //   message.error(e.response?.data?.message || "系统繁忙，请稍后再试");
     }
-  }
+  };
   useEffect(() => {
     if (chatroomId) {
       queryChatHistoryList(chatroomId);
@@ -164,8 +210,9 @@ export default function ChatPage({ props }) {
     if (!roomId) {
       return;
     }
+    addLocalStream();
     const socket = (socketRef.current = io("http://localhost:4000"));
-    socket.on("connect", function () {
+    socket.on("connect", () => {
       const payload: JoinRoomPayload = {
         chatroomId: roomId,
         userId: userInfo.id,
@@ -200,6 +247,62 @@ export default function ChatPage({ props }) {
         //   setMessageList((messageList) => [...messageList, reply.message]);
         // }
       });
+
+      socket.on("videoCall", (reply: any) => {
+        if (reply.type === "request") {
+          console.log("接收到视频通话请求", reply);
+          setIsVideoCallOpen(true);
+        } else if (reply.type === "accept") {
+          console.log("对方接受视频通话", reply, userInfo.id);
+          // 对方接受视频通话，创建连接
+          createPeerConnection(true);
+          setIsInCall(true);
+        } else if (reply.type === "reject") {
+          console.log("对方拒绝视频通话");
+          setIsVideoCallOpen(false);
+          setIsInCall(false);
+        } else if (reply.type === "offer") {
+          console.log("reply.type === offer", reply);
+          if (!localPc?.current) {
+            createPeerConnection(false);
+          }
+          const toId = userIds?.filter((item: number) => {
+            if (item !== userInfo.id) {
+              return item;
+            }
+          });
+          const peerId = toId[0];
+          const offer = reply.offer;
+          handleRemoteOffer(peerId, offer);
+        } else if (reply.type === "answer") {
+          console.log("reply.type === answer");
+          const conn = localPc?.current;
+          if (conn) {
+            conn
+              .setRemoteDescription(new RTCSessionDescription(reply.answer))
+              .then(() => console.log("Answer 设置成功"))
+              .catch((e) => console.error("设置 Answer 失败:", e));
+          }
+        } else if (reply.type === "candidate") {
+          console.log("reply.type === candidate", reply.candidate);
+
+          const conn = localPc?.current;
+          if (conn && reply.candidate) {
+            console.log("开始添加ICE candidate");
+            try {
+              conn.addIceCandidate(reply.candidate);
+              console.log("ICE candidate添加成功");
+            } catch (err) {
+              console.error("添加ICE candidate失败:", err);
+            }
+          } else {
+            console.warn("无法添加ICE candidate: 连接未建立或candidate为空");
+          }
+        } else if (reply.type === "error") {
+          console.log("reply.type === error");
+          alert(reply.message);
+        }
+      });
     });
     return () => {
       socket.disconnect();
@@ -224,6 +327,208 @@ export default function ChatPage({ props }) {
     socketRef.current?.emit("sendMessage", payload);
   }
   console.log("历史机率chatHistory", chatHistory);
+
+  //获取本地媒体流并添加到连接
+  const addLocalStream = () => {
+    navigator.mediaDevices
+      .getUserMedia({ video: true, audio: true })
+      .then((stream) => {
+        localStream.current = stream;
+        if (localVideoRef?.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+      })
+      .catch((error) => console.error("Error accessing media devices.", error));
+  };
+  //创建 RTCPeerConnection
+  const createPeerConnection = async (isOfferer = false) => {
+    if (!localStream.current) {
+      navigator.mediaDevices
+        .getUserMedia({ video: true, audio: true })
+        .then((stream) => {
+          localStream.current = stream;
+          localVideoRef.current!.srcObject = stream;
+          // // ✅ 确保流已添加后再创建 Offer
+          // if (isOfferer) createAndSendOffer(localPc.current, peerId);
+        })
+        .catch(console.error);
+    }
+
+    const toId = userIds?.filter((item: number) => {
+      if (item !== userInfo.id) {
+        return item;
+      }
+    });
+    const peerId = toId[0];
+    console.log("createPeerConnection:", isOfferer);
+
+    if (!localStream.current) {
+      addLocalStream(); // 添加本地媒体流
+    }
+    const conn = new RTCPeerConnection({ iceServers });
+    localPc.current = conn;
+    // //发起方创建通过
+    // if (isOfferer) {
+    //   // 发起方创建数据通道并存储
+    //   const localChannel = conn.createDataChannel("faqiChannel", {
+    //     ordered: true,
+    //     protocol: "json",
+    //   });
+    //   setupChannelEvents(localChannel, peerId);
+    //   dataChannelMap.set(peerId, localChannel); // 存储到对应 peerId 的通道
+    // } else {
+    //   // ✅ 接收方通过事件获取对方创建的通道
+    //   localPc.ondatachannel = (event) => {
+    //     const receiveChannel = event.channel;
+
+    //     setupChannelEvents(receiveChannel, peerId);
+    //     dataChannelMap.set(peerId, receiveChannel); // 存储到对应 peerId 的通道
+    //   };
+    // }
+
+    localStream?.current?.getTracks()?.forEach((track: any) => {
+      console.log("track", track);
+      // console.log("stream", stream);
+      localPc.current.addTrack(track, localStream.current);
+    });
+    console.log("ice", peerId);
+
+    console.log("new RTCPeerConnection", conn);
+
+    // 处理 ICE 候选者
+    localPc.current.onicecandidate = (event: any) => {
+      console.log("生成ice");
+      if (event.candidate) {
+        console.log(`ICE candidate for ${peerId}:`, event.candidate);
+        const toId = userIds?.find((id: number) => id !== userInfo.id);
+        socketRef.current?.emit("videoCall", {
+          type: "candidate",
+          candidate: event.candidate,
+          to: toId,
+          chatroomId: roomId,
+          from: userInfo.id,
+        });
+      } else {
+        // ✅ 必须发送候选结束信号
+        console.log("完整么？");
+        // socketRef.current?.emit("videoCall", { type: "candidate_end" });
+      }
+    };
+
+    // 处理接收到的远程流
+    // 假设这是一个 function 或 class 中的一部分
+
+    localPc.current.ontrack = (event) => {
+      console.log("处理接收远程流", event);
+      const stream = event.streams[0];
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+        console.log("远程视频流已绑定到视频元素");
+
+        // 确保本地视频流也正确显示
+        if (localVideoRef.current && localStream.current) {
+          localVideoRef.current.srcObject = localStream.current;
+          console.log("本地视频流已重新绑定到视频元素");
+        }
+
+        // 监听媒体流的所有轨道状态
+        stream.getTracks().forEach((track) => {
+          console.log(
+            `远程${track.kind}轨道状态:`,
+            track.enabled,
+            track.readyState
+          );
+          track.onended = () => {
+            console.log(`远程${track.kind}轨道已结束`);
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.srcObject = null;
+            }
+          };
+        });
+
+        // 监听视频元素的播放状态
+        remoteVideoRef.current.onplay = () => {
+          console.log("远程视频开始播放");
+        };
+        remoteVideoRef.current.onpause = () => {
+          console.log("远程视频已暂停");
+        };
+      } else {
+        console.error("远程视频元素引用不存在");
+      }
+    };
+    localPc.current.oniceconnectionstatechange = () => {
+      console.log("ICE 状态:", localPc.current.iceConnectionState);
+      if (localPc.current.iceConnectionState === "connected") {
+        console.log("连接成功，等待 ontrack 触发");
+      }
+    };
+    console.log("isOfferer", isOfferer);
+
+    if (isOfferer) {
+      try {
+        createAndSendOffer(conn, peerId);
+        console.log("发offer");
+      } catch (e) {
+        console.error("创建 offer 失败", e);
+      }
+    }
+  };
+  //创建 Offer 并发送
+  const createAndSendOffer = (conn: any, peerId: number) => {
+    let offer_: any;
+    conn
+      .createOffer()
+      .then((offer: any) => {
+        conn.setLocalDescription(offer);
+        offer_ = offer;
+      })
+      .then(() => {
+        console.log("发送offer:", peerId, offer_);
+        socketRef.current?.emit("videoCall", {
+          type: "offer",
+          offer: offer_,
+          to: peerId,
+          from: userInfo.id,
+          chatroomId: roomId,
+        });
+      })
+      .catch((error: any) => console.error("Error creating offer:", error));
+  };
+
+  //处理远端 Offer
+  const handleRemoteOffer = (peerId: number, offer: any) => {
+    console.log("处理远端 Offer", peerId, offer);
+
+    const conn = localPc?.current;
+
+    console.log("conn", conn);
+    conn
+      ?.setRemoteDescription(offer)
+      .then(() => {
+        let answer = conn?.createAnswer();
+        return answer;
+      })
+      .then((answer: any) => {
+        conn?.setLocalDescription(answer);
+        return answer;
+      })
+      .then((answer: any) => {
+        console.log("answer", answer);
+        socketRef?.current?.emit("videoCall", {
+          type: "answer",
+          answer: answer,
+          to: peerId,
+          chatroomId: roomId,
+          from: userInfo.id,
+        });
+      })
+      .catch((error: any) =>
+        console.error("Error handling remote offer:", error)
+      );
+  };
+
   return (
     <>
       <div className="flex h-[calc(100%_-_30px)]">
@@ -238,6 +543,15 @@ export default function ChatPage({ props }) {
                 onClick={() => {
                   queryChatHistoryList(item.id);
                   setChatroomId(item.id);
+                  const UserIds = userIdslist.map(
+                    (item_: any, index: number) => {
+                      if (item.id == index + 1) {
+                        return item_;
+                      }
+                    }
+                  );
+                  console.log("UserIds", UserIds);
+                  setUserIds(UserIds[0]);
                 }}
               >
                 {item.name}
@@ -309,6 +623,14 @@ export default function ChatPage({ props }) {
 
               <span className="mx-4">文件</span>
               <span>图片</span>
+              <span
+                className="ml-2 cursor-pointer"
+                onClick={() => {
+                  setIsCallRequesting(true);
+                }}
+              >
+                视频
+              </span>
             </div>
             <div className="flex">
               <Input
@@ -329,6 +651,145 @@ export default function ChatPage({ props }) {
           </div>
         </div>
       </div>
+
+      <Dialog open={isCallRequesting} onOpenChange={setIsCallRequesting}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>视频通话请求</DialogTitle>
+            <DialogDescription>通话中。。。</DialogDescription>
+          </DialogHeader>
+          <div className="text-center py-4">是否要发起视频通话？</div>
+          <div className="flex justify-center gap-4">
+            <Button
+              onClick={() => {
+                setIsCallRequesting(false);
+                setIsVideoCallOpen(true);
+                setIsInCall(true);
+                console.log();
+                const toId = userIds?.filter((item: number) => {
+                  if (item !== userInfo.id) {
+                    return item;
+                  }
+                });
+                console.log("toId", toId);
+                const payload: any = {
+                  type: "request",
+                  from: userInfo.id,
+                  to: toId[0],
+                  chatroomId: roomId,
+                  data: "对方请求视频通话",
+                };
+
+                socketRef.current?.emit("videoCall", payload);
+              }}
+            >
+              确认
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsCallRequesting(false)}
+            >
+              取消
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isVideoCallOpen} onOpenChange={setIsVideoCallOpen}>
+        <DialogContent className="sm:max-w-[800px]">
+          <DialogHeader>
+            <DialogTitle>视频通话</DialogTitle>
+            <DialogDescription>通话中。。。</DialogDescription>
+          </DialogHeader>
+          {isInCall ? (
+            <>
+              <div className="grid grid-cols-2 gap-4 ">
+                <div className="relative aspect-video bg-muted">
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded">
+                    你
+                  </span>
+                </div>
+                <div className="relative aspect-video bg-muted">
+                  <video
+                    ref={remoteVideoRef}
+                    autoPlay
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                  <span className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded">
+                    对方
+                  </span>
+                </div>
+              </div>
+              <div className="flex justify-center gap-4 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsVideoCallOpen(false);
+                    setIsInCall(false);
+                  }}
+                >
+                  结束通话
+                </Button>
+              </div>
+            </>
+          ) : (
+            <div className="py-4">
+              <div className="text-center mb-4">收到视频通话请求</div>
+              <div className="flex justify-center gap-4">
+                <Button
+                  onClick={() => {
+                    const toId = userIds?.filter((item: number) => {
+                      if (item !== userInfo.id) {
+                        return item;
+                      }
+                    });
+                    // 发送接受信号
+                    socketRef.current?.emit("videoCall", {
+                      type: "accept",
+                      to: toId[0],
+                      from: userInfo.id,
+                      chatroomId: roomId,
+                      data: null,
+                    });
+                    setIsInCall(true);
+                  }}
+                >
+                  接受
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setIsVideoCallOpen(false);
+                    // 发送拒绝信号
+                    const toId = userIds?.filter((item: number) => {
+                      if (item !== userInfo.id) {
+                        return item;
+                      }
+                    });
+                    socketRef.current?.emit("videoCall", {
+                      type: "reject",
+                      to: toId[0],
+                      from: userInfo.id,
+                      chatroomId: roomId?.toString(),
+                      data: null,
+                    });
+                  }}
+                >
+                  拒绝
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -24,7 +24,7 @@ import {
 import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 
-const token = localStorage.getItem("token");
+const token = sessionStorage.getItem("token");
 
 async function getPeopleList(params: any) {
   // 将查询参数转换为 URL 编码的字符串

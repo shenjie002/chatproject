@@ -7,6 +7,7 @@ export class ChatHistoryController {
 
   @Get('list')
   async list(@Query('chatroomId') chatroomId: string) {
+    console.log('chatroomId', chatroomId);
     return this.chatHistoryService.list(+chatroomId);
   }
 }

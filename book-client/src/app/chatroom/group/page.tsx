@@ -47,7 +47,7 @@ export async function getPeopleList(params: any) {
   // 将查询字符串附加到 URL
   const fullUrl = `${url}?${queryString}`;
   console.log("fullUrl", fullUrl);
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const data = await fetch(fullUrl, {
     method: "Get", // 指定请求方法为Get
     headers: {
@@ -71,7 +71,7 @@ async function getchatroomAllPeople(params: any) {
   // 将查询字符串附加到 URL
   const fullUrl = `${url}?${queryString}`;
   console.log("fullUrl", fullUrl);
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const data = await fetch(fullUrl, {
     method: "Get", // 指定请求方法为Get
     headers: {
@@ -95,7 +95,7 @@ async function createGroup(params: any) {
   // 将查询字符串附加到 URL
   const fullUrl = `${url}?${queryString}`;
   console.log("fullUrl", fullUrl);
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const data = await fetch(fullUrl, {
     method: "Get", // 指定请求方法为Get
     headers: {
@@ -119,7 +119,7 @@ export async function JoinChatroom(id: number, joinUsername: any) {
   // 将查询字符串附加到 URL
   const fullUrl = `${url}/${id}?${queryString}`;
   console.log("fullUrl", fullUrl);
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const data = await fetch(fullUrl, {
     method: "Get", // 指定请求方法为Get
     headers: {
@@ -310,10 +310,9 @@ export default function GroupPage({ props }) {
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
                   <DialogTitle>创建群聊</DialogTitle>
-                  {/* <DialogDescription>
-                    Make changes to your profile here. Click save when you're
-                    done.
-                  </DialogDescription> */}
+                  <DialogDescription>
+                    请输入您想创建的群聊名称
+                  </DialogDescription>
                 </DialogHeader>
                 <Input
                   placeholder="群聊名字"

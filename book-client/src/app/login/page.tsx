@@ -43,8 +43,8 @@ export default function LoginPage() {
       return;
     }
 
-    localStorage.setItem("token", response.token);
-    localStorage.setItem("userInfo", JSON.stringify(response.user));
+    sessionStorage.setItem("token", response.token);
+    sessionStorage.setItem("userInfo", JSON.stringify(response.user));
     form.reset();
     router.push(`/book`); // 跳转
   };
