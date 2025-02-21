@@ -14,13 +14,50 @@ interface userInfo {
   createTime: string;
   updateTime: string;
 }
-
+interface Tab {
+  id: number;
+  label: string;
+  href: string;
+  checked?: boolean;
+}
 const ChatroomLayout = ({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) => {
   const [info, useInfo] = useState<userInfo>();
+  const [tab, setTab] = useState<Tab[]>([
+    {
+      id: 0,
+      label: "好友",
+      href: "/chatroom/FriendsAddressBook",
+      checked: false,
+    },
+    {
+      id: 1,
+      label: "群聊",
+      href: "/chatroom/group",
+      checked: false,
+    },
+    {
+      id: 2,
+      label: "1v1聊天",
+      href: "/chatroom/chat",
+      checked: false,
+    },
+    {
+      id: 3,
+      label: "收藏",
+      href: "/chatroom/collection",
+      checked: false,
+    },
+    {
+      id: 4,
+      label: "通知",
+      href: "/chatroom/notification",
+      checked: false,
+    },
+  ]);
   useEffect(() => {
     const userInfo = sessionStorage.getItem("userInfo");
     if (userInfo) {
@@ -33,7 +70,7 @@ const ChatroomLayout = ({
   return (
     <div className="w-full h-full flex flex-col">
       <div className="flex justify-between p-[40px]  h-[20%]">
-        {/* <div className="text-5xl">聊天室</div> */}
+        <div className="text-5xl">聊天室</div>
         <div className="flex items-center">
           <Image
             src="/124599.jfif"
@@ -47,36 +84,25 @@ const ChatroomLayout = ({
       </div>
       <div className="flex flex-1 ">
         <div className="w-[20%] flex flex-col justify-around items-center text-2xl border  border-solid border-gray-10">
-          <Link
-            href="/chatroom/FriendsAddressBook"
-            className="w-full  hover:bg-blue-300 text-center"
-          >
-            好友
-          </Link>
-          <Link
-            href="/chatroom/group"
-            className="w-full hover:bg-blue-300 text-center"
-          >
-            群聊
-          </Link>
-          <Link
-            href="/chatroom/chat"
-            className="w-full hover:bg-blue-300 text-center"
-          >
-            1v1聊天
-          </Link>
-          <Link
-            href="/chatroom/collection"
-            className="w-full hover:bg-blue-300 text-center"
-          >
-            收藏
-          </Link>
-          <Link
-            href="/chatroom/notification"
-            className="w-full hover:bg-blue-300 text-center"
-          >
-            通知
-          </Link>
+          {tab.map((item, index) => (
+            <Link
+              key={item.id}
+              href={item.href}
+              className={`w-full  hover:bg-blue-300 text-center ${
+                item.checked ? "bg-blue-300" : ""
+              }`}
+              onClick={() => {
+                setTab(() =>
+                  tab.map((item) => ({
+                    ...item,
+                    checked: item.id === index,
+                  }))
+                );
+              }}
+            >
+              {item.label}
+            </Link>
+          ))}
         </div>
         <div className="flex-1">{children}</div>
       </div>

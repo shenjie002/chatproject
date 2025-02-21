@@ -2,6 +2,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import * as SFS from "@mediapipe/selfie_segmentation";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import Image from "next/image";
@@ -157,9 +158,16 @@ export default function ChatPage({ props }) {
   const [isInCall, setIsInCall] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const virtualCanvasRef = useRef<HTMLCanvasElement>(null);
+  const remotevirtualCanvasRef = useRef<HTMLCanvasElement>(null);
   const localPc = useRef<any>();
   const localStream = useRef<any>();
   const remoteVideos = useRef<any>({});
+  const animationId = useRef<any>({});
+  const canvasStream = useRef<any>({});
+  // ... 添加一个状态来控制是否显示虚拟背景
+  const [showVirtualBg, setShowVirtualBg] = useState(false);
+  const selfieSegmentation = useRef<any>({});
 
   const queryChatroomList = async () => {
     try {
@@ -528,7 +536,134 @@ export default function ChatPage({ props }) {
         console.error("Error handling remote offer:", error)
       );
   };
+  //  初始化图像分割工具
+  function initVb(bg: any) {
+    console.log("触发initVB");
+    console.log("bg", bg);
+    if (virtualCanvasRef.current) {
+      const canvasCtx = virtualCanvasRef.current.getContext("2d");
+      console.log("canvasCtx", canvasCtx);
+      const image = new window.Image();
+      image.crossOrigin = "anonymous"; // 强制跨域请求携带凭据
+      image.src = `/image/${bg}.jpeg`;
+      console.log("image", image);
+      selfieSegmentation.current = new SFS.SelfieSegmentation({
+        locateFile: (file) => {
+          console.log(file);
+          return `/virtualbgmodel/${file}`; //ng  代理模型文件夹
+          // return `https://cdn.jsdelivr.'net/npm/@mediapipe/selfie_segmentation@0.1.1632777926/${file}`;
+        },
+      });
+      console.log("selfieSegmentation", selfieSegmentation.current);
+      selfieSegmentation.current.setOptions({
+        modelSelection: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      });
+      // 在初始化代码后添加测试逻辑
+      const handleResults = (results: any) => {
+        console.log("results", results);
+        if (canvasCtx && virtualCanvasRef.current) {
+          canvasCtx.save();
+          canvasCtx.clearRect(
+            0,
+            0,
+            virtualCanvasRef.current.width,
+            virtualCanvasRef.current.height
+          );
 
+          // Prepare the new frame
+
+          if (!image.complete || image.naturalWidth === 0) {
+            console.error("图像未正确加载");
+            return;
+          }
+
+          // 如果是视频，检查 readyState
+          if (image.tagName === "VIDEO" && image.readyState < 2) {
+            console.error("视频未就绪");
+            return;
+          }
+          canvasCtx.drawImage(
+            results.segmentationMask,
+            0,
+            0,
+            virtualCanvasRef.current.width,
+            virtualCanvasRef.current.height
+          );
+          //利用canvas绘制新背景
+          //canvasCtx.globalCompositeOperation = 'source-in';则意味着处理分割后图像中的人体。
+          canvasCtx.globalCompositeOperation = "source-out";
+          canvasCtx.drawImage(
+            image,
+            0,
+            0,
+            image.width,
+            image.height,
+            0,
+            0,
+            virtualCanvasRef.current.width,
+            virtualCanvasRef.current.height
+          );
+          canvasCtx.globalCompositeOperation = "destination-atop";
+          canvasCtx.drawImage(
+            results.image,
+            0,
+            0,
+            virtualCanvasRef.current.width,
+            virtualCanvasRef.current.height
+          );
+          // Done
+          canvasCtx.restore();
+        }
+      };
+      selfieSegmentation.current.onResults(handleResults);
+    }
+  }
+  //切换虚拟背景
+  const virtualBg = () => {
+    if (virtualCanvasRef?.current) {
+      if (animationId.current) {
+        cancelAnimationFrame(animationId.current);
+        animationId.current = null;
+      }
+      // if (canvasStream.current) {
+      //   canvasStream.current.getTracks().forEach((track) => track.stop());
+      // }
+      let lastVideoTime = -1; // 使用数字类型记录上一帧的时间
+      const getFrames = async () => {
+        const currentTime = localVideoRef?.current?.currentTime || 0; // 获取当前视频时间
+        if (currentTime > lastVideoTime) {
+          // 比较视频时间戳
+          await selfieSegmentation.current.send({
+            image: localVideoRef.current,
+          });
+          lastVideoTime = currentTime; // 更新上一帧时间
+        }
+        animationId.current = requestAnimationFrame(getFrames);
+      };
+      getFrames();
+      //通过此方法即可捕捉画布并转换成流。内部唯一的参数就是帧速率FPS，一般设置为 20 到 25 这个区间即可满足正常视觉上的视频流畅度。
+      return virtualCanvasRef?.current.captureStream(25);
+    }
+    // })
+  };
+  //切换发送的远程流
+  function changeRemoteStream(bg = "bg1") {
+    initVb(bg);
+
+    const stream = virtualBg();
+    //先获取要替换的流 过滤音频 仅仅保留视频
+    if (stream) {
+      const [videoTrack] = stream.getVideoTracks();
+      //主播端所有关联关系遍历并替换新的流
+
+      const senders = localPc?.current?.getSenders();
+      const send = senders.find((s) => s.track.kind === "video");
+      send.replaceTrack(videoTrack);
+      setShowVirtualBg(true); // 切换显示虚拟背景
+    }
+  }
   return (
     <>
       <div className="flex h-[calc(100%_-_30px)]">
@@ -537,7 +672,9 @@ export default function ChatPage({ props }) {
           {roomList?.map((item) => {
             return (
               <div
-                className="cursor-pointer mb-3"
+                className={`cursor-pointer mb-3 ${
+                  roomId === item.id ? "text-blue-500" : ""
+                }`}
                 key={item.id}
                 data-id={item.id}
                 onClick={() => {
@@ -607,9 +744,7 @@ export default function ChatPage({ props }) {
             <div className="flex">
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline">
-                    <span>表情</span>
-                  </Button>
+                  <span className="cursor-pointer">表情</span>
                 </PopoverTrigger>
                 <PopoverContent className="w-80">
                   <EmojiPicker
@@ -621,15 +756,15 @@ export default function ChatPage({ props }) {
                 </PopoverContent>
               </Popover>
 
-              <span className="mx-4">文件</span>
-              <span>图片</span>
+              <span className="mx-4 cursor-pointer">文件</span>
+              <span className="cursor-pointer">图片</span>
               <span
                 className="ml-2 cursor-pointer"
                 onClick={() => {
                   setIsCallRequesting(true);
                 }}
               >
-                视频
+                视频通话
               </span>
             </div>
             <div className="flex">
@@ -710,12 +845,20 @@ export default function ChatPage({ props }) {
                     autoPlay
                     playsInline
                     muted
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover absolute top-0 left-0
+                    }`}
+                  />
+                  <canvas
+                    ref={virtualCanvasRef}
+                    className={`w-full h-full object-cover absolute top-0 left-0 ${
+                      showVirtualBg ? "opacity-100" : "opacity-0"
+                    }`}
                   />
                   <span className="absolute bottom-2 left-2 bg-black/50 text-white px-2 py-1 rounded">
-                    你
+                    {showVirtualBg ? "你的虚拟背景" : "你"}
                   </span>
                 </div>
+
                 <div className="relative aspect-video bg-muted">
                   <video
                     ref={remoteVideoRef}
@@ -738,6 +881,36 @@ export default function ChatPage({ props }) {
                 >
                   结束通话
                 </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <span className="ml-2 cursor-pointer" onClick={() => {}}>
+                      虚拟背景
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80">
+                    <div className="flex flex-wrap">
+                      {["bg1", "bg2", "bg3"]?.map((item, index) => {
+                        return (
+                          <div
+                            key={index}
+                            className="w-[33%] h-[33%] cursor-pointer"
+                            onClick={() => {
+                              changeRemoteStream(item);
+                            }}
+                          >
+                            <Image
+                              src={`/image/${item}.jpeg`}
+                              alt=""
+                              width={100}
+                              height={100}
+                              className="rounded-full"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </>
           ) : (
