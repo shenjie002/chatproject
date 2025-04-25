@@ -165,9 +165,22 @@ export default function ChatPage({ props }) {
   const remoteVideos = useRef<any>({});
   const animationId = useRef<any>({});
   const canvasStream = useRef<any>({});
-  // ... 添加一个状态来控制是否显示虚拟背景
   const [showVirtualBg, setShowVirtualBg] = useState(false);
   const selfieSegmentation = useRef<any>({});
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // 添加自动滚动到底部的函数
+  const scrollToBottom = () => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  };
+
+  // 在消息更新后自动滚动
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatHistory]);
 
   const queryChatroomList = async () => {
     try {
@@ -666,14 +679,16 @@ export default function ChatPage({ props }) {
   }
   return (
     <>
-      <div className="flex h-[calc(100%_-_30px)]">
-        <div className="flex flex-col w-[20%]">
+      <div className="flex h-[calc(100%_-_30px)] bg-gradient-to-b from-pink-50 to-purple-50">
+        <div className="flex flex-col w-[20%] p-4 border-r border-pink-100">
           {/* 聊天室列表 */}
           {roomList?.map((item) => {
             return (
               <div
-                className={`cursor-pointer mb-3 ${
-                  roomId === item.id ? "text-blue-500" : ""
+                className={`cursor-pointer mb-3 p-3 rounded-lg transition-all ${
+                  roomId === item.id
+                    ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
+                    : "hover:bg-pink-50"
                 }`}
                 key={item.id}
                 data-id={item.id}
@@ -687,7 +702,6 @@ export default function ChatPage({ props }) {
                       }
                     }
                   );
-                  console.log("UserIds", UserIds);
                   setUserIds(UserIds[0]);
                 }}
               >
@@ -696,44 +710,48 @@ export default function ChatPage({ props }) {
             );
           })}
         </div>
-        <div className="flex flex-col flex-1">
-          <div className={`flex flex-col h-[80%] overflow-auto border `}>
+        <div className="flex flex-col flex-1 p-4">
+          <div
+            ref={chatContainerRef}
+            className="flex flex-col h-[80%] overflow-auto rounded-xl bg-white/50 backdrop-blur-sm shadow-lg p-4"
+          >
             {/* 消息区 */}
-
             {chatHistory?.map((item) => {
-              console.log(item, "item");
               return (
                 <div
-                  className={`flex flex-col ${
+                  className={`flex items-end mb-4 ${
                     item.senderId === userInfo.id
-                      ? "items-end"
-                      : "justify-start"
+                      ? "flex-row-reverse"
+                      : "flex-row"
                   }`}
                   data-id={item.id}
                   key={item.id}
                 >
-                  <div className="flex">
+                  <div className="flex flex-col items-center mx-2">
                     <Image
-                      src={`${
-                        item.senderId === userInfo.id
-                          ? "/124599.jfif"
-                          : "/logo.jpg"
-                      }`}
-                      alt=""
-                      width={50}
-                      height={50}
-                      className="rounded-full"
+                      src={item.sender.headPic || "/default-avatar.png"}
+                      alt={item.sender.name}
+                      width={40}
+                      height={40}
+                      className="rounded-full shadow-sm"
                     />
-                    <div className="">{item.sender.name}</div>
+                    <span className="text-xs text-gray-500 mt-1">
+                      {item.sender.name}
+                    </span>
                   </div>
-                  <div
-                    className={`flex ${
-                      item.senderId === userInfo.id
-                        ? "justify-end"
-                        : "justify-start"
-                    }  w-[50%]`}
-                  >
-                    {item.content}
+                  <div className="max-w-[60%]">
+                    <div
+                      className={`px-4 py-2 rounded-2xl shadow-sm ${
+                        item.senderId === userInfo.id
+                          ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-sm"
+                          : "bg-white rounded-bl-sm"
+                      }`}
+                    >
+                      {item.content}
+                    </div>
+                    <span className="text-xs text-gray-400 mt-1 block">
+                      {new Date(item.createTime).toLocaleTimeString()}
+                    </span>
                   </div>
                 </div>
               );

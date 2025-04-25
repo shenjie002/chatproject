@@ -43,5 +43,6 @@ next-env.d.ts
 /one2more/pnpm-lock.yaml
 /one2one/pnpm-lock.yaml
 /one2one/node_modules
-
+/book-client/pnpm-lock.yaml
+/book-client/pnpm-lock.yaml
 /turnserver.conf
