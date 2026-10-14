@@ -13,8 +13,9 @@ export class RegisterUserDto {
   @IsEmail({}, { message: '必须是一个有效的邮箱地址' })
   email: string;
 
-  @IsNotEmpty({ message: '邮箱验证码不能为空' })
-  emailCode: string;
+  // 暂时禁用邮箱验证码校验，后续启用时取消注释
+  // @IsNotEmpty({ message: '邮箱验证码不能为空' })
+  // emailCode: string;
 
   @IsNotEmpty({ message: '密码不能为空' })
   @MinLength(6, { message: '密码最少 6 位' })

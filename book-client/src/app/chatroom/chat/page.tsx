@@ -2,7 +2,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import * as SFS from "@mediapipe/selfie_segmentation";
 import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import Image from "next/image";
@@ -90,9 +89,15 @@ const iceServers = [
   },
 ];
 
-const token = sessionStorage.getItem("token");
+const token =
+  typeof window !== "undefined" ? sessionStorage.getItem("token") : null;
 export function getUserInfo(): User {
-  return JSON.parse(sessionStorage.getItem("userInfo")!);
+  const userInfo =
+    typeof window !== "undefined" ? sessionStorage.getItem("userInfo") : null;
+  if (!userInfo) {
+    return {} as User;
+  }
+  return JSON.parse(userInfo);
 }
 //聊天室列表
 async function chatroomList(params?: any) {
@@ -158,6 +163,7 @@ export default function ChatPage({ props }) {
   const [isInCall, setIsInCall] = useState(false);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteStreamRef = useRef<MediaStream | null>(null);
   const virtualCanvasRef = useRef<HTMLCanvasElement>(null);
   const remotevirtualCanvasRef = useRef<HTMLCanvasElement>(null);
   const localPc = useRef<any>();
@@ -269,14 +275,14 @@ export default function ChatPage({ props }) {
         // }
       });
 
-      socket.on("videoCall", (reply: any) => {
+      socket.on("videoCall", async (reply: any) => {
         if (reply.type === "request") {
           console.log("接收到视频通话请求", reply);
           setIsVideoCallOpen(true);
         } else if (reply.type === "accept") {
           console.log("对方接受视频通话", reply, userInfo.id);
           // 对方接受视频通话，创建连接
-          createPeerConnection(true);
+          await createPeerConnection(true);
           setIsInCall(true);
         } else if (reply.type === "reject") {
           console.log("对方拒绝视频通话");
@@ -285,7 +291,7 @@ export default function ChatPage({ props }) {
         } else if (reply.type === "offer") {
           console.log("reply.type === offer", reply);
           if (!localPc?.current) {
-            createPeerConnection(false);
+            await createPeerConnection(false);
           }
           const toId = userIds?.filter((item: number) => {
             if (item !== userInfo.id) {
@@ -350,30 +356,40 @@ export default function ChatPage({ props }) {
   console.log("历史机率chatHistory", chatHistory);
 
   //获取本地媒体流并添加到连接
-  const addLocalStream = () => {
-    navigator.mediaDevices
-      .getUserMedia({ video: true, audio: true })
-      .then((stream) => {
-        localStream.current = stream;
-        if (localVideoRef?.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-      })
-      .catch((error) => console.error("Error accessing media devices.", error));
+  const addLocalStream = async () => {
+    if (localStream.current) {
+      if (localVideoRef.current && localVideoRef.current.srcObject !== localStream.current) {
+        localVideoRef.current.srcObject = localStream.current;
+        await localVideoRef.current.play().catch(() => {});
+      }
+      return localStream.current;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      localStream.current = stream;
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        await localVideoRef.current.play().catch(() => {});
+      }
+      return stream;
+    } catch (error) {
+      console.error("Error accessing media devices.", error);
+      throw error;
+    }
   };
+  useEffect(() => {
+    if (isInCall && localVideoRef.current && localStream.current) {
+      localVideoRef.current.srcObject = localStream.current;
+      localVideoRef.current.play().catch(() => {});
+    }
+  }, [isInCall]);
+
   //创建 RTCPeerConnection
   const createPeerConnection = async (isOfferer = false) => {
-    if (!localStream.current) {
-      navigator.mediaDevices
-        .getUserMedia({ video: true, audio: true })
-        .then((stream) => {
-          localStream.current = stream;
-          localVideoRef.current!.srcObject = stream;
-          // // ✅ 确保流已添加后再创建 Offer
-          // if (isOfferer) createAndSendOffer(localPc.current, peerId);
-        })
-        .catch(console.error);
-    }
+    const stream = await addLocalStream();
 
     const toId = userIds?.filter((item: number) => {
       if (item !== userInfo.id) {
@@ -383,9 +399,6 @@ export default function ChatPage({ props }) {
     const peerId = toId[0];
     console.log("createPeerConnection:", isOfferer);
 
-    if (!localStream.current) {
-      addLocalStream(); // 添加本地媒体流
-    }
     const conn = new RTCPeerConnection({ iceServers });
     localPc.current = conn;
     // //发起方创建通过
@@ -407,10 +420,8 @@ export default function ChatPage({ props }) {
     //   };
     // }
 
-    localStream?.current?.getTracks()?.forEach((track: any) => {
-      console.log("track", track);
-      // console.log("stream", stream);
-      localPc.current.addTrack(track, localStream.current);
+    stream.getTracks().forEach((track: MediaStreamTrack) => {
+      conn.addTrack(track, stream);
     });
     console.log("ice", peerId);
 
@@ -439,45 +450,44 @@ export default function ChatPage({ props }) {
     // 处理接收到的远程流
     // 假设这是一个 function 或 class 中的一部分
 
-    localPc.current.ontrack = (event) => {
-      console.log("处理接收远程流", event);
-      const stream = event.streams[0];
+    localPc.current.ontrack = (event: RTCTrackEvent) => {
+      console.log("处理接收远程流", event.track.kind, event.track.readyState);
+      const incomingStream = event.streams?.[0];
+      const remoteStream =
+        incomingStream || remoteStreamRef.current || new MediaStream();
+      remoteStreamRef.current = remoteStream;
 
-      if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = stream;
-        console.log("远程视频流已绑定到视频元素");
-
-        // 确保本地视频流也正确显示
-        if (localVideoRef.current && localStream.current) {
-          localVideoRef.current.srcObject = localStream.current;
-          console.log("本地视频流已重新绑定到视频元素");
-        }
-
-        // 监听媒体流的所有轨道状态
-        stream.getTracks().forEach((track) => {
-          console.log(
-            `远程${track.kind}轨道状态:`,
-            track.enabled,
-            track.readyState
-          );
-          track.onended = () => {
-            console.log(`远程${track.kind}轨道已结束`);
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.srcObject = null;
-            }
-          };
-        });
-
-        // 监听视频元素的播放状态
-        remoteVideoRef.current.onplay = () => {
-          console.log("远程视频开始播放");
-        };
-        remoteVideoRef.current.onpause = () => {
-          console.log("远程视频已暂停");
-        };
-      } else {
-        console.error("远程视频元素引用不存在");
+      if (!incomingStream && !remoteStream.getTracks().some((track) => track.id === event.track.id)) {
+        remoteStream.addTrack(event.track);
       }
+
+      const video = remoteVideoRef.current;
+      if (!video) return;
+
+      // 只有第一次绑定流，后续音频/视频轨道到达时不要重复设置 srcObject。
+      if (video.srcObject !== remoteStream) {
+        video.srcObject = remoteStream;
+      }
+      const playVideo = () => {
+        video.play().catch((error) => {
+          console.warn("远程视频播放失败:", error);
+        });
+      };
+      if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+        playVideo();
+      } else {
+        video.onloadedmetadata = playVideo;
+      }
+
+      event.track.onunmute = () => {
+        console.log(`远程${event.track.kind}轨道开始传输帧`);
+        playVideo();
+      };
+      event.track.onmute = () =>
+        console.warn(`远程${event.track.kind}轨道暂时没有帧`);
+      event.track.onended = () => {
+        console.warn(`远程${event.track.kind}轨道已结束`);
+      };
     };
     localPc.current.oniceconnectionstatechange = () => {
       console.log("ICE 状态:", localPc.current.iceConnectionState);
@@ -550,17 +560,47 @@ export default function ChatPage({ props }) {
       );
   };
   //  初始化图像分割工具
-  function initVb(bg: any) {
+  async function initVb(bg: any) {
     console.log("触发initVB");
     console.log("bg", bg);
     if (virtualCanvasRef.current) {
       const canvasCtx = virtualCanvasRef.current.getContext("2d");
       console.log("canvasCtx", canvasCtx);
-      const image = new window.Image();
-      image.crossOrigin = "anonymous"; // 强制跨域请求携带凭据
-      image.src = `/image/${bg}.jpeg`;
-      console.log("image", image);
-      selfieSegmentation.current = new SFS.SelfieSegmentation({
+      const backgroundVideo = document.createElement("video");
+      backgroundVideo.src = `/video/${bg}.mp4`;
+      backgroundVideo.loop = true;
+      backgroundVideo.muted = true;
+      backgroundVideo.autoplay = true;
+      backgroundVideo.playsInline = true;
+      backgroundVideo.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        backgroundVideo.onloadeddata = () => resolve();
+        backgroundVideo.onerror = () =>
+          reject(new Error(`虚拟背景视频加载失败: ${backgroundVideo.src}`));
+        backgroundVideo.load();
+      });
+      await backgroundVideo.play();
+      console.log("background video ready", backgroundVideo.src);
+
+      // MediaPipe 这个旧版包是 UMD 脚本，不适合直接由 webpack 构造器导入。
+      // 通过 public 目录加载后，它会把 SelfieSegmentation 挂到 window 上。
+      const globalWindow = window as typeof window & {
+        SelfieSegmentation?: new (config?: any) => any;
+      };
+      if (!globalWindow.SelfieSegmentation) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "/virtualbgmodel/selfie_segmentation.js";
+          script.onload = () => resolve();
+          script.onerror = () =>
+            reject(new Error("无法加载 MediaPipe Selfie Segmentation 模型"));
+          document.head.appendChild(script);
+        });
+      }
+      if (!globalWindow.SelfieSegmentation) {
+        throw new Error("MediaPipe SelfieSegmentation 加载失败");
+      }
+      selfieSegmentation.current = new globalWindow.SelfieSegmentation({
         locateFile: (file) => {
           console.log(file);
           return `/virtualbgmodel/${file}`; //ng  代理模型文件夹
@@ -575,7 +615,6 @@ export default function ChatPage({ props }) {
       });
       // 在初始化代码后添加测试逻辑
       const handleResults = (results: any) => {
-        console.log("results", results);
         if (canvasCtx && virtualCanvasRef.current) {
           canvasCtx.save();
           canvasCtx.clearRect(
@@ -585,16 +624,8 @@ export default function ChatPage({ props }) {
             virtualCanvasRef.current.height
           );
 
-          // Prepare the new frame
-
-          if (!image.complete || image.naturalWidth === 0) {
-            console.error("图像未正确加载");
-            return;
-          }
-
-          // 如果是视频，检查 readyState
-          if (image.tagName === "VIDEO" && image.readyState < 2) {
-            console.error("视频未就绪");
+          if (backgroundVideo.readyState < 2 || !backgroundVideo.videoWidth) {
+            canvasCtx.restore();
             return;
           }
           canvasCtx.drawImage(
@@ -608,11 +639,11 @@ export default function ChatPage({ props }) {
           //canvasCtx.globalCompositeOperation = 'source-in';则意味着处理分割后图像中的人体。
           canvasCtx.globalCompositeOperation = "source-out";
           canvasCtx.drawImage(
-            image,
+            backgroundVideo,
             0,
             0,
-            image.width,
-            image.height,
+            backgroundVideo.videoWidth,
+            backgroundVideo.videoHeight,
             0,
             0,
             virtualCanvasRef.current.width,
@@ -637,23 +668,29 @@ export default function ChatPage({ props }) {
   const virtualBg = () => {
     if (virtualCanvasRef?.current) {
       if (animationId.current) {
-        cancelAnimationFrame(animationId.current);
+        clearTimeout(animationId.current);
         animationId.current = null;
       }
       // if (canvasStream.current) {
       //   canvasStream.current.getTracks().forEach((track) => track.stop());
       // }
-      let lastVideoTime = -1; // 使用数字类型记录上一帧的时间
+      let processingFrame = false;
+      let stopped = false;
+      // 按固定频率处理摄像头帧，避免依赖 currentTime 导致画布只输出第一帧。
       const getFrames = async () => {
-        const currentTime = localVideoRef?.current?.currentTime || 0; // 获取当前视频时间
-        if (currentTime > lastVideoTime) {
-          // 比较视频时间戳
-          await selfieSegmentation.current.send({
-            image: localVideoRef.current,
-          });
-          lastVideoTime = currentTime; // 更新上一帧时间
+        if (stopped) return;
+        const video = localVideoRef.current;
+        if (video && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && !processingFrame) {
+          processingFrame = true;
+          try {
+            await selfieSegmentation.current.send({ image: video });
+          } catch (error) {
+            console.error("虚拟背景处理视频帧失败:", error);
+          } finally {
+            processingFrame = false;
+          }
         }
-        animationId.current = requestAnimationFrame(getFrames);
+        animationId.current = window.setTimeout(getFrames, 1000 / 25);
       };
       getFrames();
       //通过此方法即可捕捉画布并转换成流。内部唯一的参数就是帧速率FPS，一般设置为 20 到 25 这个区间即可满足正常视觉上的视频流畅度。
@@ -662,8 +699,8 @@ export default function ChatPage({ props }) {
     // })
   };
   //切换发送的远程流
-  function changeRemoteStream(bg = "bg1") {
-    initVb(bg);
+  async function changeRemoteStream(bg = "bg1") {
+    await initVb(bg);
 
     const stream = virtualBg();
     //先获取要替换的流 过滤音频 仅仅保留视频
@@ -671,9 +708,14 @@ export default function ChatPage({ props }) {
       const [videoTrack] = stream.getVideoTracks();
       //主播端所有关联关系遍历并替换新的流
 
-      const senders = localPc?.current?.getSenders();
-      const send = senders.find((s) => s.track.kind === "video");
-      send.replaceTrack(videoTrack);
+      const senders = localPc?.current?.getSenders() ?? [];
+      const send = senders.find((s: RTCRtpSender) => s.track?.kind === "video");
+      if (!send) {
+        console.error("没有找到本地视频 sender");
+        return;
+      }
+      await send.replaceTrack(videoTrack);
+      console.log("已将摄像头视频替换为虚拟背景视频轨道");
       setShowVirtualBg(true); // 切换显示虚拟背景
     }
   }
@@ -849,25 +891,26 @@ export default function ChatPage({ props }) {
       </Dialog>
 
       <Dialog open={isVideoCallOpen} onOpenChange={setIsVideoCallOpen}>
-        <DialogContent className="sm:max-w-[800px]">
+        <DialogContent className="w-[95vw] max-w-[1200px] sm:max-w-[1200px] max-h-[95vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>视频通话</DialogTitle>
             <DialogDescription>通话中。。。</DialogDescription>
           </DialogHeader>
           {isInCall ? (
             <>
-              <div className="grid grid-cols-2 gap-4 ">
-                <div className="relative aspect-video bg-muted">
+              <div className="grid grid-cols-2 gap-6 w-full max-h-[72vh]">
+                <div className="relative aspect-video min-h-[420px] max-h-[72vh] bg-muted overflow-hidden rounded-lg">
                   <video
                     ref={localVideoRef}
                     autoPlay
                     playsInline
                     muted
-                    className={`w-full h-full object-cover absolute top-0 left-0
-                    }`}
+                    className="w-full h-full object-cover absolute top-0 left-0"
                   />
                   <canvas
                     ref={virtualCanvasRef}
+                    width={1280}
+                    height={720}
                     className={`w-full h-full object-cover absolute top-0 left-0 ${
                       showVirtualBg ? "opacity-100" : "opacity-0"
                     }`}
@@ -877,7 +920,7 @@ export default function ChatPage({ props }) {
                   </span>
                 </div>
 
-                <div className="relative aspect-video bg-muted">
+                <div className="relative aspect-video min-h-[420px] max-h-[72vh] bg-muted overflow-hidden rounded-lg">
                   <video
                     ref={remoteVideoRef}
                     autoPlay

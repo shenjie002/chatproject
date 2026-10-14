@@ -1,4 +1,3 @@
-// import Image from "next/image";
 "use client";
 import { Button } from "@/components/ui/button";
 import { getEmailCode } from "../actions";
@@ -45,7 +44,7 @@ export default function RegisterPage() {
       email: "",
       password: "",
       confirmPassword: "", //再次确认密码
-      emailCode: "", //从邮箱获取的验证码
+      // emailCode: "", //从邮箱获取的验证码
     },
   });
   const router = useRouter();
@@ -55,8 +54,7 @@ export default function RegisterPage() {
       name: data.name,
       nick_name: data.nick_name,
       email: data.email,
-
-      emailCode: data.emailCode,
+      // emailCode: data.emailCode,
       password: data.password,
     });
 
@@ -75,19 +73,18 @@ export default function RegisterPage() {
     form.reset();
     router.push(`/login`); // 跳转
   };
-  //获取邮箱验证码
-  const EmailGetCode = () => {
-    form.clearErrors("email");
-    console.log("EmailGetCode----------", form.watch("email"));
-    if (form.watch("email")) {
-      getEmailCode(form.watch("email"));
-    } else {
-      form.setError("email", {
-        type: "server",
-        message: "请输入您的邮箱",
-      });
-    }
-  };
+  // 获取邮箱验证码（暂时禁用）
+  // const EmailGetCode = () => {
+  //   form.clearErrors("email");
+  //   if (form.watch("email")) {
+  //     getEmailCode(form.watch("email"));
+  //   } else {
+  //     form.setError("email", {
+  //       type: "server",
+  //       message: "请输入您的邮箱",
+  //     });
+  //   }
+  // };
   //再次输入您的密码
   const confirmPasswordBlur = () => {
     if (form.watch("confirmPassword") !== form.watch("password")) {
@@ -157,6 +154,7 @@ border-solid border-gray-500 w-[600px] h-[700px]"
                 </FormItem>
               )}
             />
+            {/* 暂时禁用邮箱验证码
             <a onClick={EmailGetCode} className="text-blue-500 cursor-pointer">
               发送邮箱验证码
             </a>
@@ -177,6 +175,7 @@ border-solid border-gray-500 w-[600px] h-[700px]"
                 </FormItem>
               )}
             />
+            */}
             <FormField
               control={form.control}
               name="password"

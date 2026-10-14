@@ -14,7 +14,7 @@ export class UserService {
 
   //注册
   async register(data: RegisterUserDto) {
-    delete data.emailCode;
+    // delete data.emailCode;
     const hasUser = await this.prisma.user.findUnique({
       where: {
         name: data.name,
